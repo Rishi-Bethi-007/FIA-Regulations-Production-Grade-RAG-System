@@ -75,9 +75,9 @@ source .venv/bin/activate   # Windows: .venv\Scripts\activate
 
 pip install -r requirements.txt
 ````
-2️⃣ Set environment variables
+### 2️⃣ Set environment variables
 Create a .env file in the project root:
-
+````
 OPENAI_API_KEY=your_openai_key
 
 PINECONE_API_KEY=your_pinecone_key
@@ -92,10 +92,11 @@ REDIS_PORT=6379
 
 EMBEDDING_MODEL=text-embedding-3-small
 GEN_MODEL=gpt-4.1-mini
+````
 Make sure Redis is running:
 
 redis-server
-3️⃣ Index the documents
+### 3️⃣ Index the documents
 python -m scripts.build_index
 This step:
 
@@ -109,7 +110,7 @@ Stores text in SQLite
 
 Stores vectors + metadata in Pinecone
 
-4️⃣ Ask a question
+### 4️⃣ Ask a question
 python -m scripts.test_rag
 Example query:
 
@@ -123,7 +124,7 @@ Citations (document, page, article)
 
 Debug info (cache hits, planner mode)
 
-5️⃣ Run evaluation
+### 5️⃣ Run evaluation
 python -m scripts.run_eval
 Generates:
 
@@ -135,7 +136,7 @@ Cache hit rates
 
 Faithfulness score
 
-📊 Sample Performance (Local)
+### 📊 Sample Performance (Local)
 Latency (p50): ~2.3s
 
 Latency (p95): ~6–7s
@@ -146,7 +147,7 @@ Retrieval cache hit rate: ~1.0
 
 Faithfulness score: ~0.8–0.9 (strict judge)
 
-🧩 Design Decisions & Trade-offs
+### 🧩 Design Decisions & Trade-offs
 Pinecone vs FAISS → managed scaling & metadata filters
 
 SQLite DocStore → simple, fast text hydration
@@ -157,7 +158,7 @@ Redis caching → biggest latency reduction lever
 
 Evaluation-first → improvements are measured, not guessed
 
-🔮 Future Extensions (Optional)
+### 🔮 Future Extensions (Optional)
 UI (Streamlit / React)
 
 Authentication & multi-tenant access
