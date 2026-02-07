@@ -10,7 +10,7 @@
 ## ✨ Key Features
 
 ### 🔹 Retrieval & Search
-- Pinecone vector database (scales to **10k+ documents**)
+- Pinecone vector database (Designed to scale to large document corpora (**10k+ documents**) using Pinecone and Redis.)
 - Metadata-aware retrieval:
   - Season (`2018–2026`)
   - Series (`F1 / F2 / F3`)
