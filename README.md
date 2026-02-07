@@ -38,9 +38,8 @@
 - Faithfulness scoring against retrieved evidence
 
 ---
-````
 ## 📂 Repository Structure
-
+````
 chunking/ Sentence-aware & overlap chunkers
 data/ FIA PDFs (2018–2026)
 embeddings/ OpenAI embedding wrapper
