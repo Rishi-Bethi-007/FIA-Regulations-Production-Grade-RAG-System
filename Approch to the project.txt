@@ -1,0 +1,243 @@
+Start like a production team would: **build the “spine” first**, then plug capabilities into it. Since you’re making this as a *new project* (not patching the old), the best approach is **thin vertical slices**: get one end-to-end path working early, then harden it with guardrails, tenancy, metrics, eval.
+
+Below is the **exact order** of what to create first, with a clear repo skeleton and milestones. No waiting, no ambiguity.
+
+---
+
+# The approach: build in 6 milestones (each runnable)
+
+## Milestone 0 — Repo skeleton + config contract (1 runnable “hello”)
+
+**Goal:** all settings in one place, app starts, env loads.
+
+Create first:
+
+1. `config.py` (env loading + defaults)
+2. `README.md` (how to run)
+3. `.env.example`
+4. `pyproject.toml` or `requirements.txt`
+
+Why first: every other file depends on this. You avoid “config spaghetti”.
+
+---
+
+## Milestone 1 — Ingestion → Stores (DocStore + Pinecone) (first real backbone)
+
+**Goal:** you can ingest chunks and later fetch them back by `chunk_id`.
+
+Create next:
+
+1. `index/docstore_sqlite.py`
+2. `index/pinecone_store.py`
+3. `index/metadata_schema.py` (your canonical metadata keys)
+4. `index/build_index.py` (ingest pipeline entry)
+
+Output of this milestone:
+
+* a SQLite file with chunks
+* Pinecone index/namespace populated with vectors + metadata (no text)
+* deterministic chunk IDs + version hash
+
+Why this first: retrieval is meaningless until ingestion is stable.
+
+---
+
+## Milestone 2 — Retrieval API (Retriever interface + Pinecone adapter + hydration)
+
+**Goal:** single function `retrieve(query, recall_k, filters, context)` returns hydrated chunks.
+
+Create:
+
+1. `retriever_interface.py` (Chunk + Retriever)
+2. `index/pinecone_adapter.py` (implements Retriever)
+3. `cache/redis_client.py` + `cache/keys.py` (tenant-aware keys)
+4. small `scripts/smoke_retrieve.py` to run twice and see cache hits
+
+Output:
+
+* retrieval works end-to-end with Redis caching
+* returns Chunk(text, metadata, score)
+
+Why now: this is the “runtime core” your RAG will call.
+
+---
+
+## Milestone 3 — RAG pipeline (rewrite → retrieve → rerank → generate)
+
+**Goal:** “ask a question → answer with citations” works.
+
+Create:
+
+1. `rag/rag_pipeline.py`
+2. `rag/query_rewriter.py` (optional initially; stub ok)
+3. `rag/reranker.py` (optional initially; stub ok)
+4. `rag/prompts.py` (prompt templates)
+5. `scripts/chat_cli.py` (CLI runner)
+
+Output:
+
+* end-to-end answer with citations
+* no guardrails yet (we add next)
+
+Why now: you want a working product early before hardening.
+
+---
+
+## Milestone 4 — Guardrails + tenant access control (protect the system)
+
+**Goal:** no cross-tenant leaks + prompt injection defense + citation enforcement.
+
+Create:
+
+1. `auth/models.py` (RequestContext: tenant_id, user_id, roles, allowed scopes)
+2. `auth/authn.py` (API key / JWT verification stub)
+3. `auth/authz.py` (policy decision)
+4. `auth/tenant.py` (namespace resolver + enforcement)
+5. `rag/guardrails/input_gate.py`
+6. `rag/guardrails/context_gate.py`
+7. `rag/guardrails/output_gate.py`
+
+Integrate into pipeline:
+
+* `rag_pipeline.answer(query, request_context)` calls guardrails at 3 gates
+
+Output:
+
+* tenant isolation enforced (namespace + metadata filter)
+* injection patterns filtered
+* answer refuses or cites properly
+
+---
+
+## Milestone 5 — Metrics + evaluation (prove it works like industry)
+
+**Goal:** measurable quality + cost/latency proof.
+
+Create:
+
+1. `metrics/logger.py` (JSON lines)
+2. `metrics/summarize_logs.py`
+3. `eval/eval_retrieval.py`
+4. `eval/eval_faithfulness.py`
+5. `eval/eval_rag.py`
+6. `eval/eval_guardrails.py`
+7. `eval/gold_rag_eval.json`
+
+Output:
+
+* report: hit@k, faithfulness %, refusals correct, cache hit rates, latency
+
+---
+
+# Recommended new repo structure (start here)
+
+```
+fia-rag-prod/
+├── README.md
+├── .env.example
+├── requirements.txt
+├── config.py
+├── scripts/
+│   ├── build_index.py          # calls index/build_index.py
+│   ├── smoke_retrieve.py
+│   └── chat_cli.py
+├── index/
+│   ├── pdf_loader.py
+│   ├── chunkers/
+│   │   ├── sentence_aware.py
+│   │   └── overlap.py
+│   ├── metadata_infer.py
+│   ├── metadata_schema.py
+│   ├── embedder.py
+│   ├── docstore_sqlite.py
+│   ├── pinecone_store.py
+│   └── pinecone_adapter.py
+├── cache/
+│   ├── redis_client.py
+│   └── keys.py
+├── rag/
+│   ├── rag_pipeline.py
+│   ├── prompts.py
+│   ├── query_rewriter.py
+│   ├── reranker.py
+│   └── guardrails/
+│       ├── input_gate.py
+│       ├── context_gate.py
+│       ├── output_gate.py
+│       └── policies.py
+├── auth/
+│   ├── models.py
+│   ├── authn.py
+│   ├── authz.py
+│   └── tenant.py
+├── metrics/
+│   ├── logger.py
+│   └── summarize_logs.py
+└── eval/
+    ├── gold_rag_eval.json
+    ├── eval_retrieval.py
+    ├── eval_faithfulness.py
+    ├── eval_rag.py
+    └── eval_guardrails.py
+```
+
+---
+
+# What to create first (today’s first coding step)
+
+**Start with Milestone 0 + Milestone 1** in this exact order:
+
+### Step A — Create `config.py` (contract)
+
+Include:
+
+* OpenAI keys + models
+* Pinecone API key, host, index, namespace
+* Redis host/port
+* DocStore path
+* chunking params, recall_k/top_k
+
+### Step B — Create `index/docstore_sqlite.py`
+
+Implement:
+
+* init DB + table
+* `put_many`
+* `get_many`
+
+### Step C — Create `index/pinecone_store.py`
+
+Implement:
+
+* `ensure_index()`
+* `upsert_vectors(...)`
+* `query(...)`
+
+### Step D — Create `index/build_index.py`
+
+Implement:
+
+* load PDF → chunk → metadata → embed → write docstore + pinecone
+
+Once this runs, you have the backbone.
+
+---
+
+## Your next message (so I can generate code with your exact settings)
+
+Paste your desired `.env.example` keys (or say “use my current config variables”), and I’ll output:
+
+1. `config.py`
+2. `index/docstore_sqlite.py`
+3. `index/pinecone_store.py`
+4. `index/build_index.py`
+5. `scripts/build_index.py`
+
+All copy/paste ready.
+
+If you don’t paste anything, I’ll assume:
+
+* `PINECONE_HOST`, `PINECONE_API_KEY`, `PINECONE_INDEX`, `PINECONE_NAMESPACE`
+* `REDIS_HOST`, `REDIS_PORT`
+* `DOCSTORE_PATH`
+* `OPENAI_API_KEY`, `EMBEDDING_MODEL`, `GEN_MODEL`

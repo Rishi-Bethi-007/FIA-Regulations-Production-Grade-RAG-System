@@ -1,0 +1,112 @@
+FIA Regulations RAG (Production Architecture + Guardrails + Tenant Access Control)
+└── 0) Inputs
+    ├── User Query (UI / CLI / API client)
+    └── FIA PDFs (object storage / repo)
+        ├── Dev: local ./data/*.pdf
+        └── Prod: S3 / Blob / GCS
+    
+└── 1) Identity + Access Control (online, per request)
+    ├── 1.1 Authentication (Who are you?)
+    │   ├── API key / OAuth / JWT
+    │   └── Identity Provider (IdP)
+    ├── 1.2 Authorization (What can you access?)
+    │   ├── Tenant resolution (tenant_id)
+    │   ├── Roles (RBAC): admin / editor / user
+    │   ├── Attributes (ABAC): series allowed, seasons allowed, doc_types allowed
+    │   └── Access policy decision
+    └── 1.3 Request Context
+        └── request_context = {
+            tenant_id,
+            user_id,
+            roles,
+            allowed_series,
+            allowed_seasons,
+            allowed_reg_types,
+            namespace,
+          }
+
+└── 2) Online Query Path (runtime per request)
+    ├── 2.1 API Layer (FastAPI / Streamlit / CLI)
+    │   ├── request_id assigned
+    │   ├── parse headers / auth token
+    │   └── build request_context (tenant + permissions)
+    ├── 2.2 Guardrails: Input Gate (before retrieval)
+    │   ├── Prompt injection detection
+    │   ├── Disallowed requests filter (policy)
+    │   ├── PII handling rules (if relevant)
+    │   └── Normalize query for caching
+    ├── 2.3 Query Rewrite (optional)
+    │   └── query_rewriter.py (uses request_context)
+    ├── 2.4 Filter Builder (FIA + Access Control)
+    │   └── build_filters(query, request_context)
+    │       ├── FIA filters:
+    │       │   ├── article ("12.3")
+    │       │   ├── season (2026)
+    │       │   └── reg_type (sporting/technical/appendix)
+    │       └── Access filters (mandatory):
+    │           ├── tenant_id == <tenant_id>
+    │           ├── series IN allowed_series
+    │           ├── season IN allowed_seasons
+    │           └── reg_type IN allowed_reg_types
+    ├── 2.5 Cache Layer (Redis)
+    │   ├── Embedding Cache
+    │   │   └── key = hash(tenant_id + normalized_query + embed_model)
+    │   └── Retrieval Cache
+    │       └── key = hash(tenant_id + namespace + filters + recall_k + embedding_hash)
+    ├── 2.6 Retrieval (Tenant-safe)
+    │   ├── Retriever interface
+    │   └── Pinecone adapter
+    │       ├── embed query (or cache hit) via :contentReference[oaicite:0]{index=0}
+    │       ├── query :contentReference[oaicite:1]{index=1}
+    │       │   ├── namespace derived from tenant strategy
+    │       │   └── filter includes tenant_id + allowed_* constraints
+    │       └── returns chunk_ids + scores + metadata (no text)
+    ├── 2.7 Hydration (DocStore)
+    │   ├── fetch chunk text by chunk_id (SQLite in dev)
+    │   └── (prod swap: Postgres or S3 + lookup)
+    ├── 2.8 Guardrails: Context Gate (after retrieval, before LLM)
+    │   ├── Validate retrieved docs match tenant_id
+    │   ├── Enforce minimum citations / source presence
+    │   ├── Drop suspicious chunks (prompt-injection patterns)
+    │   └── Clamp context size (token budget)
+    ├── 2.9 Reranking (optional)
+    │   └── reranker.py (uses only safe/hydrated chunks)
+    ├── 2.10 Answer Generation (LLM) + Citations
+    │   ├── Guardrails: Output constraints
+    │   │   ├── "Answer only from sources"
+    │   │   ├── "Cite sources"
+    │   │   └── JSON schema if needed
+    │   └── LLM (GEN_MODEL)
+    ├── 2.11 Guardrails: Output Gate (post-generation)
+    │   ├── Citation coverage check (did we cite?)
+    │   ├── Faithfulness check (claim ↔ evidence)
+    │   ├── Policy check (disallowed content)
+    │   └── Redaction rules (if needed)
+    ├── 2.12 Logging / Audit (industry-grade)
+    │   ├── Request metrics (latency, cache hits)
+    │   ├── Access logs (tenant_id/user_id)
+    │   ├── Retrieval trace (chunk_ids returned)
+    │   └── Safety trace (which guardrails triggered)
+    └── 2.13 Response to User
+        ├── Answer
+        ├── Citations
+        └── (Optional) debug trace for admins
+
+└── 3) Ingestion Pipeline (offline / scheduled) — tenant-aware
+    ├── 3.1 Document intake
+    │   ├── tenant assignment (which tenant owns this PDF)
+    │   └── version hashing
+    ├── 3.2 Extract + clean (pdf_loader)
+    ├── 3.3 Chunking (sentence_aware/overlap)
+    ├── 3.4 Metadata inference (FIA + tenant_id)
+    ├── 3.5 Embed
+    ├── 3.6 Pinecone upsert (vectors + metadata pointers)
+    │   ├── metadata MUST include tenant_id
+    │   └── namespace strategy (see below)
+    └── 3.7 DocStore upsert (chunk text keyed by chunk_id)
+
+└── 4) Evaluation / QA (offline)
+    ├── Retrieval evaluation (hit@k by tenant)
+    ├── Faithfulness evaluation (evidence-based)
+    ├── Guardrail tests (prompt injection / policy)
+    └── Access control tests (cannot retrieve cross-tenant)

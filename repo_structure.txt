@@ -1,0 +1,47 @@
+fia-rag-prod/
+├── README.md
+├── .env.example
+├── requirements.txt
+├── config.py
+├── scripts/
+│   ├── build_index.py          # calls index/build_index.py
+│   ├── smoke_retrieve.py
+│   └── chat_cli.py
+├── index/
+│   ├── pdf_loader.py
+│   ├── chunkers/
+│   │   ├── sentence_aware.py
+│   │   └── overlap.py
+│   ├── metadata_infer.py
+│   ├── metadata_schema.py
+│   ├── embedder.py
+│   ├── docstore_sqlite.py
+│   ├── pinecone_store.py
+│   └── pinecone_adapter.py
+├── cache/
+│   ├── redis_client.py
+│   └── keys.py
+├── rag/
+│   ├── rag_pipeline.py
+│   ├── prompts.py
+│   ├── query_rewriter.py
+│   ├── reranker.py
+│   └── guardrails/
+│       ├── input_gate.py
+│       ├── context_gate.py
+│       ├── output_gate.py
+│       └── policies.py
+├── auth/
+│   ├── models.py
+│   ├── authn.py
+│   ├── authz.py
+│   └── tenant.py
+├── metrics/
+│   ├── logger.py
+│   └── summarize_logs.py
+└── eval/
+    ├── gold_rag_eval.json
+    ├── eval_retrieval.py
+    ├── eval_faithfulness.py
+    ├── eval_rag.py
+    └── eval_guardrails.py

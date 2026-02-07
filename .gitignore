@@ -1,0 +1,54 @@
+# -------------------------
+# Python
+# -------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pkl
+*.log
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# -------------------------
+# Secrets / env
+# -------------------------
+.env
+.env.*
+*.pem
+*.key
+
+# -------------------------
+# Local data & artifacts
+# -------------------------
+data/
+docstore.sqlite
+*.sqlite
+eval_report.json
+*.jsonl
+
+# If you want to keep gold_rag_eval.json in repo, REMOVE this line:
+# gold_rag_eval.json
+
+# -------------------------
+# Build / dist
+# -------------------------
+build/
+dist/
+*.egg-info/
+
+# -------------------------
+# Model / HuggingFace caches (optional)
+# -------------------------
+.cache/
+huggingface/
+transformers/
