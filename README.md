@@ -38,7 +38,7 @@
 - Faithfulness scoring against retrieved evidence
 
 ---
-
+````
 ## 📂 Repository Structure
 
 chunking/ Sentence-aware & overlap chunkers
@@ -53,7 +53,7 @@ scripts/ Runnable entry points
 cache/ Redis helpers (keys, client)
 config.py Centralized configuration
 retriever_interface.py DB-agnostic retriever interface
-
+````
 
 Each component is **intentionally decoupled**, so:
 - vector DBs can be swapped
